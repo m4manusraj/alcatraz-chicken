@@ -61,16 +61,17 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
   const [availableMenuItems, setAvailableMenuItems] = useState<MenuItem[]>([])
   const [configuredItems, setConfiguredItems] = useState<ConfigurableComboItem[]>([])
   const [formData, setFormData] = useState<Partial<ComboMeal>>(initialFormData)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   const uniqueId = useId()
 
+  // Fetch all menu items when dialog opens
   useEffect(() => {
     const fetchMenuItems = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "menuItems"))
-        const items = querySnapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }) as MenuItem)
-          .filter((item) => item.isActive) // Only active items can be added to combos
+        const items = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as MenuItem)
+        console.log("Fetched menu items:", items.length)
         setAvailableMenuItems(items)
       } catch (err) {
         console.error("Error fetching menu items:", err)
@@ -80,39 +81,65 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
 
     if (open) {
       fetchMenuItems()
+
+      // Reset states when dialog opens
       if (comboToEdit) {
-        setFormData({ ...initialFormData, ...comboToEdit })
+        console.log("Editing combo:", comboToEdit)
+        setFormData({
+          name: comboToEdit.name || "",
+          description: comboToEdit.description || "",
+          price: comboToEdit.price,
+          isActive: comboToEdit.isActive !== undefined ? comboToEdit.isActive : true,
+          image: comboToEdit.image || "",
+          items: comboToEdit.items || [],
+        })
         setImagePreview(comboToEdit.image || null)
-        // This needs to wait for availableMenuItems to be populated
       } else {
         setFormData(initialFormData)
         setConfiguredItems([])
         setImagePreview(null)
       }
+      setIsInitialized(false)
       setError(null)
     }
   }, [open, comboToEdit])
 
+  // Set up configured items when editing and menu items are loaded
   useEffect(() => {
-    // Populate configuredItems when editing and availableMenuItems are loaded
-    if (comboToEdit && availableMenuItems.length > 0 && configuredItems.length === 0) {
-      const itemsToConfigure = comboToEdit.items
-        .map((comboItem) => {
-          const menuItem = availableMenuItems.find((mi) => mi.id === comboItem.menuItemId)
-          if (!menuItem) return null
-          return {
-            ...menuItem,
-            comboItemId: comboItem.id || crypto.randomUUID(), // Use existing ID or generate new
-            quantity: comboItem.quantity,
-            selectedVariationId: comboItem.selectedVariationId,
-            selectedAddonIds: comboItem.selectedAddonIds || [],
-            isOptional: comboItem.isOptional || false,
-          }
+    if (!open || !comboToEdit || availableMenuItems.length === 0 || isInitialized) return
+
+    console.log("Setting up configured items for editing. Available items:", availableMenuItems.length)
+    console.log("Combo items to configure:", comboToEdit.items.length)
+
+    // Create a map of menu items by ID for faster lookup
+    const menuItemsMap = new Map<string, MenuItem>()
+    availableMenuItems.forEach((item) => menuItemsMap.set(item.id, item))
+
+    // Map combo items to configurable items
+    const configItems: ConfigurableComboItem[] = []
+
+    comboToEdit.items.forEach((comboItem) => {
+      const menuItem = menuItemsMap.get(comboItem.menuItemId)
+
+      if (menuItem) {
+        console.log("Found menu item for combo item:", menuItem.name)
+        configItems.push({
+          ...menuItem,
+          comboItemId: comboItem.id || crypto.randomUUID(),
+          quantity: comboItem.quantity || 1,
+          selectedVariationId: comboItem.selectedVariationId || undefined,
+          selectedAddonIds: comboItem.selectedAddonIds || [],
+          isOptional: comboItem.isOptional || false,
         })
-        .filter(Boolean) as ConfigurableComboItem[]
-      setConfiguredItems(itemsToConfigure)
-    }
-  }, [comboToEdit, availableMenuItems, open]) // Add open to re-evaluate if dialog reopens
+      } else {
+        console.warn("Menu item not found for combo item:", comboItem.menuItemId)
+      }
+    })
+
+    console.log("Configured items:", configItems.length)
+    setConfiguredItems(configItems)
+    setIsInitialized(true)
+  }, [comboToEdit, availableMenuItems, open, isInitialized])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -175,11 +202,11 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
     return configuredItems.reduce((total, item) => {
       let itemPrice = item.price
       if (item.selectedVariationId) {
-        const variation = item.variations.find((v) => v.id === item.selectedVariationId)
+        const variation = item.variations?.find((v) => v.id === item.selectedVariationId)
         if (variation) itemPrice += variation.priceAdjustment
       }
       item.selectedAddonIds.forEach((addonId) => {
-        const addon = item.addons.find((a) => a.id === addonId)
+        const addon = item.addons?.find((a) => a.id === addonId)
         if (addon) itemPrice += addon.price
       })
       return total + itemPrice * item.quantity
@@ -215,26 +242,29 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
         menuItemId: item.id,
         menuItemName: item.name, // Denormalize for easier display later
         quantity: item.quantity,
-        selectedVariationId: item.selectedVariationId,
-        selectedAddonIds: item.selectedAddonIds,
-        isOptional: item.isOptional,
+        selectedVariationId: item.selectedVariationId || "",
+        selectedAddonIds: item.selectedAddonIds || [],
+        isOptional: item.isOptional || false,
       }))
 
       const comboData: Omit<ComboMeal, "id" | "createdAt" | "updatedAt"> & { createdAt?: any; updatedAt: any } = {
         name: formData.name!,
         description: formData.description || "",
-        price: finalPrice, // Use the final price (override or calculated)
-        image: imageUrl,
-        isActive: formData.isActive!,
+        price: finalPrice,
+        image: imageUrl || "",
+        isActive: formData.isActive ?? true,
         items: comboItemsToSave,
         updatedAt: serverTimestamp(),
       }
 
+      // Remove any undefined values before saving
+      const cleanedComboData = Object.fromEntries(Object.entries(comboData).filter(([_, value]) => value !== undefined))
+
       if (comboToEdit) {
-        await updateDoc(doc(db, "comboMeals", comboToEdit.id), comboData)
+        await updateDoc(doc(db, "comboMeals", comboToEdit.id), cleanedComboData)
       } else {
-        comboData.createdAt = serverTimestamp()
-        await addDoc(collection(db, "comboMeals"), comboData)
+        const newComboData = { ...cleanedComboData, createdAt: serverTimestamp() }
+        await addDoc(collection(db, "comboMeals"), newComboData)
       }
 
       onOpenChange(false)
@@ -332,6 +362,14 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
               </CardContent>
             </Card>
 
+            {/* Debug Info */}
+            <div className="bg-blue-900/20 border border-blue-500/30 text-blue-400 p-4 rounded-lg">
+              <p>Debug: {comboToEdit ? "Editing existing combo" : "Creating new combo"}</p>
+              <p>Available menu items: {availableMenuItems.length}</p>
+              <p>Configured items: {configuredItems.length}</p>
+              {comboToEdit && <p>Original combo items: {comboToEdit.items.length}</p>}
+            </div>
+
             {/* Items Configuration Section */}
             <Card>
               <CardHeader>
@@ -344,11 +382,13 @@ export function ComboMealDialog({ open, onOpenChange, comboToEdit, onSave }: Com
                     <SelectValue placeholder="Select an item to add to combo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableMenuItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name} (${item.price.toFixed(2)})
-                      </SelectItem>
-                    ))}
+                    {availableMenuItems
+                      .filter((item) => item.isActive) // Only show active items when adding new ones
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} (${item.price.toFixed(2)})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
 

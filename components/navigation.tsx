@@ -1,14 +1,28 @@
 "use client"
 
-import { Menu, X } from "lucide-react"
+import { Menu, X, ChevronDown, LogOut, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth-provider"
+import { signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +31,15 @@ export function Navigation() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      router.push("/")
+    } catch (error) {
+      console.error("Error signing out: ", error)
+    }
+  }
 
   // Default logo URL - you can make this dynamic later from settings
   const logoUrl =
@@ -51,10 +74,57 @@ export function Navigation() {
             <Link href="/about" className="text-white/80 hover:text-orange-500 transition-colors">
               About
             </Link>
-            <Link href="/login" className="text-white/80 hover:text-orange-500 transition-colors">
-              Admin
+            <Link href="/contact" className="text-white/80 hover:text-orange-500 transition-colors">
+              Contact
             </Link>
-            <Button className="bg-orange-500 hover:bg-orange-600">Order Now</Button>
+
+            {/* Auth Section */}
+            {loading ? (
+              <div className="w-16 h-8 bg-gray-700 animate-pulse rounded"></div>
+            ) : user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white/80 hover:text-orange-500 transition-colors flex items-center gap-1"
+                  >
+                    Dashboard
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-black border-orange-500/30 text-white">
+                  <DropdownMenuLabel className="text-orange-500">
+                    {user.displayName || user.email || "Admin User"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-orange-500/30" />
+                  <DropdownMenuItem asChild className="hover:bg-orange-500/20 cursor-pointer">
+                    <Link href="/dashboard" className="flex items-center">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Go to Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-orange-500/30" />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-400 hover:bg-red-500/20 hover:text-red-300 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/login" className="text-white/80 hover:text-orange-500 transition-colors">
+                Login
+              </Link>
+            )}
+
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={() => window.open("https://alcatrazchicken.order-online.ai/#/", "_blank")}
+            >
+              Order Now
+            </Button>
           </div>
 
           <Button variant="ghost" size="icon" className="relative z-50 md:hidden" onClick={() => setIsOpen(!isOpen)}>
@@ -93,13 +163,54 @@ export function Navigation() {
               About
             </Link>
             <Link
-              href="/login"
+              href="/contact"
               className="text-2xl font-bold text-white hover:text-orange-500 transition-colors"
               onClick={() => setIsOpen(false)}
             >
-              Admin
+              Contact
             </Link>
-            <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => setIsOpen(false)}>
+
+            {/* Mobile Auth Section */}
+            {!loading &&
+              (user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="text-2xl font-bold text-white hover:text-orange-500 transition-colors flex items-center gap-2"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <LayoutDashboard className="h-6 w-6" />
+                    Dashboard
+                  </Link>
+                  <Button
+                    onClick={() => {
+                      handleLogout()
+                      setIsOpen(false)
+                    }}
+                    variant="ghost"
+                    className="text-2xl font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-2"
+                  >
+                    <LogOut className="h-6 w-6" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-2xl font-bold text-white hover:text-orange-500 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Login
+                </Link>
+              ))}
+
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={() => {
+                window.open("https://alcatrazchicken.order-online.ai/#/", "_blank")
+                setIsOpen(false)
+              }}
+            >
               Order Now
             </Button>
           </div>

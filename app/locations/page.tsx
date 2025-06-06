@@ -1,12 +1,56 @@
-'use client'
+"use client"
 
-import { motion } from 'framer-motion'
+import { motion } from "framer-motion"
 import { Layout } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Phone, Mail, Car, Bus, Bike, ParkingMeterIcon as Parking, Utensils, Wifi, CreditCard, ShipWheelIcon as Wheelchair } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  Phone,
+  Car,
+  Bus,
+  Bike,
+  ParkingMeterIcon as Parking,
+  Utensils,
+  Wifi,
+  CreditCard,
+  ShipWheelIcon as Wheelchair,
+} from "lucide-react"
+import { useState, useEffect } from "react"
+import { subscribeToRestaurantSettings } from "@/lib/settings-service"
+import type { RestaurantSettings } from "@/types/menu"
 
 export default function LocationsPage() {
+  const [settings, setSettings] = useState<RestaurantSettings | null>(null)
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRestaurantSettings((newSettings) => {
+      setSettings(newSettings)
+    })
+
+    return unsubscribe
+  }, [])
+
+  const formatTime = (time?: string) => {
+    if (!time) return ""
+    const [hours, minutes] = time.split(":")
+    const hour = Number.parseInt(hours)
+    const ampm = hour >= 12 ? "pm" : "am"
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+    return `${displayHour}${minutes !== "00" ? `:${minutes}` : ""}${ampm}`
+  }
+
+  const formatHoursForDisplay = (hours: RestaurantSettings["operatingHours"]) => {
+    if (!hours || hours.length === 0) return []
+
+    return hours.map((day) => ({
+      day: day.dayOfWeek,
+      hours: day.isOpen ? `${formatTime(day.openTime)} - ${formatTime(day.closeTime)}` : "Closed",
+      isOpen: day.isOpen,
+    }))
+  }
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -15,7 +59,7 @@ export default function LocationsPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-orange-500/20 to-black" />
         <div className="absolute inset-0 prison-bars opacity-20" />
         <div className="absolute inset-0 noise" />
-        
+
         <div className="container relative px-4 py-12 sm:py-16 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -37,7 +81,7 @@ export default function LocationsPage() {
       <section className="py-12 sm:py-16 bg-[#1a1a1a] relative overflow-hidden">
         <div className="absolute inset-0 prison-bars opacity-10" />
         <div className="absolute inset-0 noise" />
-        
+
         <div className="container px-4 relative">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Map */}
@@ -54,7 +98,7 @@ export default function LocationsPage() {
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"
-                referrerPolicy="no-referrer-when-loaded"
+                referrerPolicy="no-referrer-when-downgrade"
                 className="grayscale contrast-125 opacity-80"
               />
             </motion.div>
@@ -67,7 +111,9 @@ export default function LocationsPage() {
               className="space-y-8"
             >
               <div>
-                <Badge variant="secondary" className="bg-orange-500/10 text-orange-500 mb-4">Kelowna Location</Badge>
+                <Badge variant="secondary" className="bg-orange-500/10 text-orange-500 mb-4">
+                  Kelowna Location
+                </Badge>
                 <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
                   Visit Our
                   <span className="text-orange-500 ml-3">Restaurant</span>
@@ -80,11 +126,12 @@ export default function LocationsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-white mb-2">Address</h3>
                     <p className="text-gray-400">
-                      101-225 Rutland Rd S
+                      {settings?.address?.street || "101-225 Rutland Rd S"}
                       <br />
-                      Kelowna, BC V1X 3B1
+                      {settings?.address?.city || "Kelowna"}, {settings?.address?.province || "BC"}{" "}
+                      {settings?.address?.postalCode || "V1X 3B1"}
                       <br />
-                      Canada
+                      {settings?.address?.country || "Canada"}
                     </p>
                   </div>
                 </div>
@@ -94,18 +141,29 @@ export default function LocationsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-white mb-2">Hours</h3>
                     <div className="grid gap-1 text-gray-400">
-                      <div className="flex justify-between">
-                        <span>Monday - Thursday</span>
-                        <span>11am - 10pm</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Friday - Saturday</span>
-                        <span>11am - 11pm</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Sunday</span>
-                        <span>12pm - 9pm</span>
-                      </div>
+                      {settings?.operatingHours ? (
+                        formatHoursForDisplay(settings.operatingHours).map((day, index) => (
+                          <div key={index} className="flex justify-between">
+                            <span>{day.day}</span>
+                            <span className={day.isOpen ? "" : "text-red-400"}>{day.hours}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Monday - Thursday</span>
+                            <span>11am - 10pm</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Friday - Saturday</span>
+                            <span>11am - 11pm</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Sunday</span>
+                            <span>12pm - 9pm</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -115,9 +173,9 @@ export default function LocationsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-white mb-2">Contact</h3>
                     <p className="text-gray-400">
-                      Phone: (250) 980-6991
+                      Phone: {settings?.phone || "(250) 980-6991"}
                       <br />
-                      Email: info@alcatrazchicken.ca
+                      Email: {settings?.email || "info@alcatrazchicken.ca"}
                     </p>
                   </div>
                 </div>
@@ -168,15 +226,12 @@ export default function LocationsPage() {
               </div>
 
               <div className="flex gap-4">
-                <Button 
-                  size="lg" 
-                  className="flex-1 bg-orange-500 hover:bg-orange-600"
-                >
+                <Button size="lg" className="flex-1 bg-orange-500 hover:bg-orange-600">
                   Get Directions
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
+                <Button
+                  size="lg"
+                  variant="outline"
                   className="flex-1 border-orange-500/20 text-orange-500 hover:bg-orange-500 hover:text-white"
                 >
                   Order Now

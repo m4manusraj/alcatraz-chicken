@@ -10,6 +10,8 @@ import { HeroCarousel } from "@/components/hero-carousel"
 import { collection, onSnapshot, query, where, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { getRestaurantSettings } from "@/lib/settings-service"
+import type { RestaurantSettings } from "@/types/menu"
 
 interface MenuItem {
   id: string
@@ -44,10 +46,23 @@ export default function Home() {
   const [activeOffers, setActiveOffers] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [settings, setSettings] = useState<RestaurantSettings | null>(null)
 
   useEffect(() => {
-    // Fetch featured menu items
-    const menuQuery = query(collection(db, "menuItems"), where("isFeatured", "==", true), limit(4))
+    // Fetch restaurant settings
+    const fetchSettings = async () => {
+      const restaurantSettings = await getRestaurantSettings()
+      setSettings(restaurantSettings)
+    }
+    fetchSettings()
+
+    // Fetch featured menu items (only active and featured)
+    const menuQuery = query(
+      collection(db, "menuItems"),
+      where("isFeatured", "==", true),
+      where("isActive", "==", true),
+      limit(4),
+    )
 
     const unsubscribeMenu = onSnapshot(
       menuQuery,
@@ -66,7 +81,7 @@ export default function Home() {
       },
     )
 
-    // Fetch active offers
+    // Fetch active offers (only active offers)
     const offersQuery = query(collection(db, "offers"), where("isActive", "==", true), limit(4))
 
     const unsubscribeOffers = onSnapshot(
@@ -137,20 +152,26 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
-            {activeOffers.map((offer) => (
-              <OfferBanner
-                key={offer.id}
-                title={offer.title}
-                description={offer.description}
-                code={offer.code}
-                discount={offer.discount}
-                image={offer.image}
-                link={offer.link}
-                expiryDate={offer.expiryDate}
-              />
-            ))}
-          </div>
+          {activeOffers.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              {activeOffers.map((offer) => (
+                <OfferBanner
+                  key={offer.id}
+                  title={offer.title}
+                  description={offer.description}
+                  code={offer.code}
+                  discount={offer.discount}
+                  image={offer.image}
+                  link={offer.link}
+                  expiryDate={offer.expiryDate}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-400">No active offers at the moment. Check back soon!</p>
+            </div>
+          )}
 
           <div className="mt-8 text-center">
             <motion.div
@@ -172,8 +193,8 @@ export default function Home() {
       {/* Featured Menu Section */}
       <section className="py-16 sm:py-20 bg-gradient-to-b from-black to-[#1a1a1a] relative overflow-hidden">
         {/* Background Elements */}
-        <div className="absolute inset-0 prison-bars opacity-10" />
-        <div className="absolute inset-0 noise" />
+        <div className="absolute inset-0 prison-bars opacity-10 pointer-events-none" />
+        <div className="absolute inset-0 noise pointer-events-none" />
 
         <div className="container px-4 relative">
           <motion.div
@@ -219,20 +240,26 @@ export default function Home() {
           </motion.div>
 
           {/* Menu Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-12 justify-items-center">
-            {featuredItems.map((item) => (
-              <MenuItemType
-                key={item.id}
-                name={item.name}
-                category={item.category}
-                description={item.description}
-                price={item.price}
-                image={item.image}
-                spicyLevel={item.spicyLevel}
-                isNew={item.isNew}
-              />
-            ))}
-          </div>
+          {featuredItems.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
+              {featuredItems.map((item) => (
+                <MenuItemType
+                  key={item.id}
+                  name={item.name}
+                  category={item.category}
+                  description={item.description}
+                  price={item.price}
+                  image={item.image}
+                  spicyLevel={item.spicyLevel}
+                  isNew={item.isNew}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-400">No featured items available at the moment.</p>
+            </div>
+          )}
 
           {/* View Full Menu Button */}
           <motion.div
@@ -260,8 +287,8 @@ export default function Home() {
 
       {/* How to Order Section */}
       <section className="py-16 sm:py-20 bg-[#1a1a1a] relative overflow-hidden">
-        <div className="absolute inset-0 prison-bars opacity-10" />
-        <div className="absolute inset-0 noise" />
+        <div className="absolute inset-0 prison-bars opacity-10 pointer-events-none" />
+        <div className="absolute inset-0 noise pointer-events-none" />
 
         <div className="container px-4 relative">
           <motion.div
@@ -285,7 +312,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="bg-black/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 text-center w-[280px] sm:w-full"
+              className="bg-black/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 text-center w-full"
             >
               <div className="w-16 sm:w-24 h-16 sm:h-24 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 overflow-hidden">
                 <img
@@ -297,7 +324,7 @@ export default function Home() {
               <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Order Online</h3>
               <p className="text-sm sm:text-base text-gray-400 mb-4">Order directly through our website for pickup</p>
               <a
-                href="https://order.alcatrazchicken.com"
+                href="https://alcatrazchicken.order-online.ai/#/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 sm:px-6 py-2 rounded-lg transition-colors text-sm sm:text-base"
@@ -336,7 +363,7 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: partner.delay }}
-                className="bg-black/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 text-center flex flex-col h-full justify-between w-[280px] sm:w-full"
+                className="bg-black/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 text-center flex flex-col h-full justify-between w-full"
               >
                 <div>
                   <div
@@ -381,8 +408,8 @@ export default function Home() {
 
       {/* Story Section */}
       <section className="py-12 sm:py-16 md:py-20 bg-[#1a1a1a] relative overflow-hidden">
-        <div className="absolute inset-0 prison-bars opacity-10" />
-        <div className="absolute inset-0 noise" />
+        <div className="absolute inset-0 prison-bars opacity-10 pointer-events-none" />
+        <div className="absolute inset-0 noise pointer-events-none" />
 
         <div className="container px-4 relative">
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -468,22 +495,33 @@ export default function Home() {
             </h2>
             <div className="space-y-2 sm:space-y-4 text-sm sm:text-base text-gray-400">
               <p>101-225 Rutland Rd S</p>
-              <p>Kelowna, BC</p>
+              <p>Kelowna, BC V1X 3B1</p>
               <p>Canada</p>
             </div>
             <div className="mt-6 sm:mt-8 space-y-2">
-              <div className="flex justify-between text-sm sm:text-base">
-                <span>Monday - Thursday</span>
-                <span>11am - 10pm</span>
-              </div>
-              <div className="flex justify-between text-sm sm:text-base">
-                <span>Friday - Saturday</span>
-                <span>11am - 11pm</span>
-              </div>
-              <div className="flex justify-between text-sm sm:text-base">
-                <span>Sunday</span>
-                <span>12pm - 9pm</span>
-              </div>
+              {settings?.operatingHours ? (
+                settings.operatingHours.map((hours) => (
+                  <div key={hours.dayOfWeek} className="flex justify-between text-sm sm:text-base">
+                    <span>{hours.dayOfWeek}</span>
+                    <span>{hours.isOpen ? `${hours.openTime} - ${hours.closeTime}` : "Closed"}</span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span>Monday - Thursday</span>
+                    <span>11am - 10pm</span>
+                  </div>
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span>Friday - Saturday</span>
+                    <span>11am - 11pm</span>
+                  </div>
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span>Sunday</span>
+                    <span>12pm - 9pm</span>
+                  </div>
+                </>
+              )}
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}

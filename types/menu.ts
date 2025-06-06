@@ -149,7 +149,6 @@ export interface RestaurantSettings {
   phone: string
   email: string
   operatingHours: OperatingHours[]
-  taxRatePercentage: number // e.g., 5 for 5%
   currency: string // e.g., "CAD", "USD"
   deliverySettings?: {
     enabled: boolean
@@ -157,10 +156,16 @@ export interface RestaurantSettings {
     freeDeliveryOverAmount?: number
     estimatedTimeMinutes: number // Average delivery time
     zones?: DeliveryZone[]
+    useStoreHours: boolean // true = use store hours, false = use custom hours
+    customHours?: OperatingHours[] // only used if useStoreHours is false
+    offsetMinutes: number // minutes before closing to stop accepting orders
   }
   pickupSettings?: {
     enabled: boolean
     estimatedTimeMinutes: number // Average pickup prep time
+    useStoreHours: boolean // true = use store hours, false = use custom hours
+    customHours?: OperatingHours[] // only used if useStoreHours is false
+    offsetMinutes: number // minutes before closing to stop accepting orders
   }
   socialMediaLinks?: {
     instagram?: string
@@ -169,6 +174,9 @@ export interface RestaurantSettings {
   }
   logoUrl?: string
   faviconUrl?: string
+  bannerSettings?: {
+    enabled: boolean // whether to show service unavailable banner
+  }
   updatedAt: any
 }
 

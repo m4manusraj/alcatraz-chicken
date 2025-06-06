@@ -17,6 +17,8 @@ import {
   Users,
   Menu,
   X,
+  Home,
+  Mail,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -43,10 +45,12 @@ interface SidebarLinkInfo {
 }
 
 const baseSidebarLinks: Omit<SidebarLinkInfo, "badge">[] = [
+  { icon: Home, label: "Homepage", href: "/" },
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
   { icon: Pizza, label: "Menu", href: "/dashboard/menu" },
   { icon: MenuIconLucide, label: "Categories", href: "/dashboard/categories" },
   { icon: Tag, label: "Offers", href: "/dashboard/offers" },
+  { icon: Mail, label: "Communications", href: "/dashboard/communications" },
   { icon: SettingsIconLucide, label: "Settings", href: "/dashboard/settings" },
   { icon: Users, label: "Developer", href: "/dashboard/developer" },
 ]
